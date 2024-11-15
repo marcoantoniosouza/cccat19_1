@@ -155,6 +155,7 @@ async function insertUserPassenger(connection: any) {
 
 async function cleanTestData() {
     const connection = pgp()("postgres://postgres:123456@localhost:5432/app");
+    await connection.query("delete from ccca.account where account_id = $1", ["157c515b-8399-4b4a-ac6f-fd6f30543542"]);
     await connection.query("delete from ccca.account where email = $1", ["newPassenger@test.com"]);
     await connection.query("delete from ccca.account where email = $1", ["newDriver@test.com"]);
     await connection.$pool.end();
