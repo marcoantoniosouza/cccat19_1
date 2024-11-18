@@ -41,8 +41,8 @@ async function insertNewAccount (connection: any, input: any) {
 }
 
 async function emailAlreadyExists (email: string, connection: any) {
-	const [acc] = await connection.query("select * from ccca.account where email = $1", [email]);
-	return !!acc;
+	const [account] = await connection.query("select * from ccca.account where email = $1", [email]);
+	return !!account;
 }
 
 function isNameValid (name: string) {

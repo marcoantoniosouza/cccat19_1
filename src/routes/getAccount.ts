@@ -15,8 +15,8 @@ getAccountRouter.get("/:accountId", async (req, res) => {
 });
 
 async function getAccount(connection: any, accountId: string) {
-    const [acc] = await connection.query("select * from ccca.account where account_id = $1", [accountId]);
-    return acc;
+    const [account] = await connection.query("select * from ccca.account where account_id = $1", [accountId]);
+    return account;
 }
 
 function mapper(queryResponse: any) {
