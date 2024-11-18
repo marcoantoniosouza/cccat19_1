@@ -1,12 +1,13 @@
-import axios from "axios";
-import pgp from "pg-promise";
+import axios, { AxiosResponse, ResponseType } from "axios";
+import "dotenv/config";
+import { Database } from "../src/infrastructure/db";
 
-const API_URL = "http://localhost:3000/signup";
-const DB_URL_STRING = "postgres://postgres:123456@localhost:5432/app";
+const API_URL = `http://localhost:${process.env.PORT}`;
+const API_URL_SIGNUP = `${API_URL}/signup`;
+const API_URL_GET_ACCOUNT = `${API_URL}/get-account`;
 
 beforeAll(async () => {
-    await insertTestData();
-    startSignupServer();
+    startServer();
 });
 
 afterAll(async () => {
@@ -25,7 +26,7 @@ test.each([
         carPlate: carPlate,
         isDriver: true,
     };
-    await axios.post(API_URL, requestBody).catch((err: any) => {
+    await axios.post(API_URL_SIGNUP, requestBody).catch((err: any) => {
         const { response } = err;
         const { status } = response;
         expect(status).toBe(422);
@@ -36,11 +37,22 @@ test.each([
 
 test("Should return e-mail already exists error code", async function () {
     const requestBody = {
-        name: "User Test",
-        email: `test@test.com`,
-        cpf: "87748248800"
+        name: "New Passenger",
+        email: "test@test.com",
+        cpf: "87748248800",
+        carPlate: "",
+        password: "123456",
+        isPassenger: true,
+        isDriver: false
     };
-    await axios.post(API_URL, requestBody).catch((err: any) => {
+    await axios.post(API_URL_SIGNUP, requestBody).then(async (response: any) => {
+        const { status } = response;
+        expect(status).toBe(200);
+        expect(response.data.accountId).toBeDefined();
+        const { accountId } = response.data;
+        await checkNewAccount(requestBody, accountId);
+    });
+    await axios.post(API_URL_SIGNUP, requestBody).catch((err: any) => {
         const { response } = err;
         const { status } = response;
         expect(status).toBe(422);
@@ -64,7 +76,7 @@ test.each([
         email: `userName${Date.now()}@test.com`,
         cpf: "87748248800"
     };
-    await axios.post(API_URL, requestBody).catch((err: any) => {
+    await axios.post(API_URL_SIGNUP, requestBody).catch((err: any) => {
         const { response } = err;
         const { status } = response;
         expect(status).toBe(422);
@@ -82,7 +94,7 @@ test.each([
         email: email,
         cpf: "87748248800"
     };
-    await axios.post(API_URL, requestBody).catch((err: any) => {
+    await axios.post(API_URL_SIGNUP, requestBody).catch((err: any) => {
         const { response } = err;
         const { status } = response;
         expect(status).toBe(422);
@@ -94,6 +106,7 @@ test.each([
 	null,
 	undefined,
 	"",
+	"1",
 	"11111111111"
 ])("Should return invalid cpf error code", async function (cpf: any) {
 	const requestBody = {
@@ -101,7 +114,7 @@ test.each([
         email: `userCpf${Date.now()}@test.com`,
         cpf: cpf
     };
-    await axios.post(API_URL, requestBody).catch((err: any) => {
+    await axios.post(API_URL_SIGNUP, requestBody).catch((err: any) => {
         const { response } = err;
         const { status } = response;
         expect(status).toBe(422);
@@ -119,10 +132,12 @@ test("Should create new passanger", async function () {
         isPassenger: true,
         isDriver: false
     };
-    await axios.post(API_URL, requestBody).then((response: any) => {
+    await axios.post(API_URL_SIGNUP, requestBody).then(async (response: any) => {
         const { status } = response;
         expect(status).toBe(200);
         expect(response.data.accountId).toBeDefined();
+        const { accountId } = response.data;
+        await checkNewAccount(requestBody, accountId);
     });
 });
 
@@ -136,31 +151,37 @@ test("Should create new driver", async function () {
         isPassenger: false,
         isDriver: true
     };
-    await axios.post(API_URL, requestBody).then((response: any) => {
+    await axios.post(API_URL_SIGNUP, requestBody).then(async (response: any) => {
         const { status } = response;
         expect(status).toBe(200);
         expect(response.data.accountId).toBeDefined();
+        const { accountId } = response.data;
+        await checkNewAccount(requestBody, accountId);
     });
 });
 
-async function insertTestData() {
-    const connection = pgp()("postgres://postgres:123456@localhost:5432/app");
-    await insertUserPassenger(connection);
-    await connection.$pool.end();
-}
-
-async function insertUserPassenger(connection: any) {
-    await connection.query("insert into ccca.account (account_id, name, email, cpf, car_plate, is_passenger, is_driver, password) values ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (account_id) DO NOTHING", ["157c515b-8399-4b4a-ac6f-fd6f30543542", "Passenger Test", "test@test.com", "87748248800", "", true, false, "123456"]);
+async function checkNewAccount(requestBody: any, accountId: string) {
+    await axios.get(`${API_URL_GET_ACCOUNT}/${accountId}`).then((response: AxiosResponse) => {
+        const account = response.data;
+        expect(account.accountId).toBe(accountId);
+        expect(account.name).toBe(requestBody.name);
+        expect(account.email).toBe(requestBody.email);
+        expect(account.cpf).toBe(requestBody.cpf);
+        expect(account.carPlate).toBe(requestBody.carPlate);
+        expect(account.password).toBe(requestBody.password);
+        expect(account.isPassenger).toBe(requestBody.isPassenger);
+        expect(account.isDriver).toBe(requestBody.isDriver);
+    })
 }
 
 async function cleanTestData() {
-    const connection = pgp()("postgres://postgres:123456@localhost:5432/app");
-    await connection.query("delete from ccca.account where account_id = $1", ["157c515b-8399-4b4a-ac6f-fd6f30543542"]);
-    await connection.query("delete from ccca.account where email = $1", ["newPassenger@test.com"]);
-    await connection.query("delete from ccca.account where email = $1", ["newDriver@test.com"]);
-    await connection.$pool.end();
+    const db = new Database();
+    await db.getConnection().query("delete from ccca.account where email = $1", ["test@test.com"]);
+    await db.getConnection().query("delete from ccca.account where email = $1", ["newPassenger@test.com"]);
+    await db.getConnection().query("delete from ccca.account where email = $1", ["newDriver@test.com"]);
+    await db.closeConnection();
 }
 
-function startSignupServer () {
-    require("../src/signup");
+function startServer () {
+    require("../src/server");
 }

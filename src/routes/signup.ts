@@ -1,23 +1,23 @@
 import crypto from "crypto";
-import pgp from "pg-promise";
-import express from "express";
-import { validateCpf } from "./validateCpf";
+import { Router } from "express";
+import { validateCpf } from "../validateCpf";
+import "dotenv/config";
+import { Database } from "../infrastructure/db";
 
-const app = express();
-app.use(express.json());
+const signupRouter = Router();
 
-app.post("/signup", async function (req, res) {
+signupRouter.post("/", async function (req, res) {
 	const input = req.body;
-	const connection = pgp()("postgres://postgres:123456@localhost:5432/app");
+	const db = new Database();
 	try {
-		const validationCode = await validateNewAccount(connection, input);
+		const validationCode = await validateNewAccount(db.getConnection(), input);
 		if (validationCode < 0) {
 			res.status(422).json({ message: validationCode })
 		} else {
-			res.status(200).json(await signup(connection, input));
+			res.status(200).json(await signup(db.getConnection(), input));
 		}
 	} finally {
-		await connection.$pool.end();
+		await db.closeConnection();
 	}
 });
 
@@ -57,4 +57,4 @@ function isCarPlateValid (carPlate: string) {
 	return carPlate.match(/[A-Z]{3}[0-9]{4}/);
 }
 
-app.listen(3000);
+export default signupRouter;
