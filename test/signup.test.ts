@@ -30,7 +30,7 @@ test.each([
 		const { response } = err;
 		const { status } = response;
 		expect(status).toBe(422);
-		expect(response.data.message).toBe(-5);
+		expect(response.data.message).toBe("Car plate is invalid");
 	});
 
 });
@@ -56,7 +56,7 @@ test("Should return e-mail already exists error code", async function () {
 		const { response } = err;
 		const { status } = response;
 		expect(status).toBe(422);
-		expect(response.data.message).toBe(-4);
+		expect(response.data.message).toBe("E-mail already exists");
 	});
 
 });
@@ -80,7 +80,7 @@ test.each([
 		const { response } = err;
 		const { status } = response;
 		expect(status).toBe(422);
-		expect(response.data.message).toBe(-3);
+		expect(response.data.message).toBe("Name is invalid");
 	});
 });
 
@@ -98,7 +98,7 @@ test.each([
 		const { response } = err;
 		const { status } = response;
 		expect(status).toBe(422);
-		expect(response.data.message).toBe(-2);
+		expect(response.data.message).toBe("E-mail is invalid");
 	});
 });
 
@@ -118,7 +118,7 @@ test.each([
 		const { response } = err;
 		const { status } = response;
 		expect(status).toBe(422);
-		expect(response.data.message).toBe(-1);
+		expect(response.data.message).toBe("CPF is invalid");
 	});
 });
 

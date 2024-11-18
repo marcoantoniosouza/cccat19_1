@@ -10,24 +10,21 @@ signupRouter.post("/", async function (req, res) {
 	const input = req.body;
 	const db = new Database();
 	try {
-		const validationCode = await validateNewAccount(db.getConnection(), input);
-		if (validationCode < 0) {
-			res.status(422).json({ message: validationCode })
-		} else {
-			res.status(200).json(await signup(db.getConnection(), input));
-		}
+		await validateNewAccount(db.getConnection(), input);
+		res.json(await signup(db.getConnection(), input));
+	} catch (error: any) {
+		res.status(422).json({ message: error.message });
 	} finally {
 		await db.closeConnection();
 	}
 });
 
-async function validateNewAccount (connection: any, input: any): Promise<number> {
-	if (await emailAlreadyExists(input.email, connection)) return -4;
-	if (!isNameValid(input.name)) return -3;
-	if (!isEmailValid(input.email)) return -2;
-	if (!validateCpf(input.cpf)) return -1;
-	if (input.isDriver && !isCarPlateValid(input.carPlate)) return -5;
-	return 1;
+async function validateNewAccount (connection: any, input: any): Promise<void> {
+	if (await emailAlreadyExists(input.email, connection)) throw new Error("E-mail already exists");
+	if (!input.name.match(/[a-zA-Z] [a-zA-Z]+/)) throw new Error("Name is invalid");
+	if (!input.email.match(/^(.+)@(.+)$/)) throw new Error("E-mail is invalid");
+	if (!validateCpf(input.cpf)) throw new Error("CPF is invalid");
+	if (input.isDriver && !input.carPlate.match(/[A-Z]{3}[0-9]{4}/)) throw new Error("Car plate is invalid");
 }
 
 async function signup (connection: any, input: any) {
@@ -43,18 +40,6 @@ async function insertNewAccount (connection: any, input: any) {
 async function emailAlreadyExists (email: string, connection: any) {
 	const [account] = await connection.query("select * from ccca.account where email = $1", [email]);
 	return !!account;
-}
-
-function isNameValid (name: string) {
-	return name.match(/[a-zA-Z] [a-zA-Z]+/);
-}
-
-function isEmailValid (email: string) {
-	return email.match(/^(.+)@(.+)$/);
-}
-
-function isCarPlateValid (carPlate: string) {
-	return carPlate.match(/[A-Z]{3}[0-9]{4}/);
 }
 
 export default signupRouter;
